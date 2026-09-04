@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
   title: "UniSwap — VIT-AP Campus Peer Marketplace",
@@ -16,22 +17,10 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
       </head>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased flex flex-col justify-between">
-        <main className="flex-1">{children}</main>
-        <footer className="bg-[#0A2540] text-blue-200 text-xs py-8 border-t border-blue-900/50 mt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded bg-yellow-400 text-slate-950 font-bold flex items-center justify-center text-xs">U</span>
-              <span className="font-bold text-white">UniSwap • VIT-AP Edition</span>
-              <span className="text-slate-400">| Designed for VIT-AP Students</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <span>Escrow via Razorpay</span>
-              <span>AI via Groq Llama 3</span>
-              <span>Campus Pickups: MH, LH & Library</span>
-            </div>
-          </div>
-        </footer>
+      <body className="min-h-screen bg-[#f9fafb] text-[#0a1b33] antialiased flex flex-col justify-between selection:bg-yellow-200">
+        <AuthProvider>
+          <main className="flex-1">{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );
