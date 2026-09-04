@@ -1,22 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
-import {
-  PlusCircle,
-  ShieldCheck,
-  FileText,
-  Shield,
-  Sparkles,
-  LogOut,
-  LogIn,
-  User,
-} from "lucide-react";
+import { ShoppingBag, PlusCircle, CheckCircle, Bot, Shield, FileText, Bell, Search, Sparkles } from "lucide-react";
 
 export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
-  const { user, logout } = useAuth();
-
   return (
     <header className="sticky top-0 z-40 bg-[#0A2540] text-white border-b border-blue-950/40 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,55 +46,32 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
             </Link>
           </nav>
 
-          {/* User & Actions */}
+          {/* User & AI Trigger */}
           <div className="flex items-center gap-3">
             {onOpenAi && (
               <button
                 onClick={onOpenAi}
-                className="hidden sm:flex items-center gap-1.5 bg-blue-600/60 hover:bg-blue-600 text-yellow-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-400/30 transition shadow-sm"
+                className="flex items-center gap-1.5 bg-blue-600/60 hover:bg-blue-600 text-yellow-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-semibold border border-blue-400/30 transition shadow-sm"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Ask Groq AI</span>
               </button>
             )}
 
-            {user ? (
-              /* Authenticated Student Pill */
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-xl border border-white/10 text-xs">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[10px] border border-emerald-400/40">
-                    ✓
-                  </div>
-                  <div className="hidden sm:block text-left">
-                    <div className="font-semibold text-white flex items-center gap-1">
-                      <span>{user.name}</span>
-                      <span className="text-[10px] text-blue-200">({user.regNo})</span>
-                    </div>
-                    <div className="text-[10px] text-emerald-300 font-medium">
-                      {user.hostel} • Verified Student
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={logout}
-                  title="Sign Out"
-                  className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition text-xs flex items-center gap-1"
-                >
-                  <LogOut className="w-4 h-4 text-rose-300" />
-                  <span className="hidden lg:inline text-[11px]">Logout</span>
-                </button>
+            {/* Verified Student Badge */}
+            <div className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+              <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[10px] border border-emerald-400/40">
+                ✓
               </div>
-            ) : (
-              /* Not logged in: Sign In button */
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs transition shadow-sm"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </Link>
-            )}
+              <div className="hidden sm:block text-left">
+                <div className="font-semibold text-white flex items-center gap-1">
+                  <span>Student ID: 23BCE***</span>
+                </div>
+                <div className="text-[10px] text-emerald-300 font-medium">
+                  @vitap.ac.in Verified
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

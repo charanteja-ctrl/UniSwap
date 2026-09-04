@@ -3,15 +3,13 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { ChevronRight, ShieldCheck, Sparkles, ArrowRight, LogIn, User } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { ChevronRight, ShieldCheck, Sparkles, ArrowRight } from "lucide-react";
 
 export default function HeroSection({
   onExploreClick,
 }: {
   onExploreClick?: () => void;
 }) {
-  const { user } = useAuth();
   return (
     <section className="px-4 sm:px-6 lg:px-8 pt-6 pb-12">
       <div className="relative w-full max-w-[1400px] mx-auto rounded-[48px] bg-white border border-slate-200/50 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.03)] overflow-hidden min-h-[580px] md:h-[620px] flex flex-col justify-between">
@@ -145,35 +143,14 @@ export default function HeroSection({
               </a>
             </nav>
 
-            {/* Right Action */}
-            <div className="flex items-center gap-2">
-              {user ? (
-                <Link
-                  href="/sell"
-                  className="flex items-center gap-1 bg-[#0a152d] hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-full transition-colors shadow-sm"
-                >
-                  <span>Start Selling</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-1 bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-xs font-bold px-3.5 py-2 rounded-full transition-colors shadow-sm"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Sign In</span>
-                  </Link>
-                  <Link
-                    href="/sell"
-                    className="hidden sm:flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-semibold px-3 py-2 rounded-full transition-colors"
-                  >
-                    <span>Sell</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </>
-              )}
-            </div>
+            {/* Right CTA */}
+            <Link
+              href="/sell"
+              className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-900 text-xs font-semibold px-3.5 py-2 rounded-full transition-colors"
+            >
+              <span>Start Selling</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </div>
