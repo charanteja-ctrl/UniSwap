@@ -1,0 +1,48 @@
+# Render Blueprint for UniSwap (VIT-AP Campus Peer Marketplace)
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # =========================================================================
+  # Unified Full-Stack Web Service (Frontend UI + Backend API Gateway)
+  # =========================================================================
+  - type: web
+    name: uniswap-vitap
+    runtime: node
+    plan: free # Can upgrade to starter ($7/mo) for 24/7 always-on uptime
+    region: singapore # Lowest latency for India & VIT-AP campus
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+      # Razorpay Payment Gateway Keys
+      - key: RAZORPAY_KEY_ID
+        sync: false # Set in Render Dashboard
+      - key: RAZORPAY_KEY_SECRET
+        sync: false # Set in Render Dashboard
+      - key: NEXT_PUBLIC_RAZORPAY_KEY_ID
+        sync: false # Set in Render Dashboard
+
+      # Groq AI Cloud LPU Key
+      - key: GROQ_API_KEY
+        sync: false # Set in Render Dashboard
+
+      # Supabase PostgreSQL & Auth
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false # Set in Render Dashboard
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false # Set in Render Dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # Set in Render Dashboard
+
+      # Platform Settings
+      - key: PLATFORM_FEE_PERCENT
+        value: "2"
+      - key: UNIVERSITY_DOMAIN
+        value: "vitap.ac.in"
