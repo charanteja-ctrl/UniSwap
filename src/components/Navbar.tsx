@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth, DEMO_USERS } from "@/lib/auth-context";
 import { UserRole } from "@/lib/types";
 import NotificationDropdown from "@/components/NotificationDropdown";
+import UniSwapLogo from "@/components/UniSwapLogo";
 import {
   ShoppingBag,
   PlusCircle,
@@ -93,22 +94,9 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
     <header className="sticky top-0 z-40 bg-[#0A2540] text-white border-b border-blue-950/40 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Brand Logo */}
+          {/* Brand Logo with Custom Vector Emblem */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-400 to-amber-500 flex items-center justify-center text-slate-950 font-black text-xl shadow group-hover:scale-105 transition-transform">
-                U
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-xl tracking-tight text-white">UniSwap</span>
-                  <span className="bg-yellow-400/20 text-yellow-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-yellow-400/30 uppercase tracking-wider">
-                    VIT-AP
-                  </span>
-                </div>
-                <span className="text-[10px] text-blue-200 block -mt-1">Campus Peer Marketplace</span>
-              </div>
-            </Link>
+            <UniSwapLogo size="md" withText href="/" />
           </div>
 
           {/* Navigation Items */}
@@ -330,6 +318,14 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
                         <Shield className="w-3.5 h-3.5 text-purple-400" />
                         <span>Master Admin Command Center</span>
                       </Link>
+                      <Link
+                        href="/login"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition"
+                      >
+                        <User className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Sign In as Another Student</span>
+                      </Link>
                       <button
                         type="button"
                         onClick={() => {
@@ -346,13 +342,22 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
                 )}
               </div>
             ) : (
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs transition shadow"
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Sign In</span>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="flex items-center gap-1.5 text-blue-200 hover:text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-white/5 transition"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </Link>
+                <Link
+                  href="/signup"
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-slate-950 font-bold px-3.5 py-1.5 rounded-xl text-xs transition shadow-md shadow-yellow-500/20 hover:scale-105"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Sign Up</span>
+                </Link>
+              </div>
             )}
           </div>
         </div>

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ShieldCheck, Heart } from "lucide-react";
+import UniSwapLogo from "@/components/UniSwapLogo";
 
 export default function LandingFooter() {
   return (
@@ -11,14 +12,9 @@ export default function LandingFooter() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-10 pb-12 border-b border-slate-100">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#0a152d] text-white flex items-center justify-center font-bold text-sm">
-                ✦
-              </div>
-              <span className="font-display font-bold text-xl text-[#0a1b33]">
-                UniSwap
-              </span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <UniSwapLogo size="sm" withText href="/" />
+            </div>
             <p className="font-sans text-sm text-slate-500 max-w-sm leading-relaxed">
               The trusted marketplace for VIT-AP students. Buy, sell, and swap verified pre-owned textbooks, electronics, and hostel essentials inside campus.
             </p>

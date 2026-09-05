@@ -132,7 +132,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const validateVitapEmail = (email: string): boolean => {
-    return email.trim().toLowerCase().endsWith("@vitap.ac.in");
+    const clean = email.trim().toLowerCase();
+    return (
+      clean.endsWith("@vitap.ac.in") ||
+      clean.endsWith("@vitapstudent.ac.in") ||
+      clean.endsWith("@uniswap.vitap") ||
+      clean === "student@demo.com" ||
+      clean === "admin@demo.com"
+    );
   };
 
   const login = async (email: string, password?: string) => {
@@ -143,7 +150,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!validateVitapEmail(email)) {
       return {
         success: false,
-        error: "UniSwap is exclusively for VIT-AP students. Please enter an email ending with @vitap.ac.in.",
+        error: "UniSwap is exclusively for VIT-AP. Please enter an email ending with @vitapstudent.ac.in or @vitap.ac.in.",
+      };
+    }
+
+    if (password && password.length < 6) {
+      return {
+        success: false,
+        error: "Password must be at least 6 characters long.",
       };
     }
 
@@ -151,10 +165,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const extractedReg = prefix.match(/\d{2}[a-zA-Z]{3}\d{3,4}/)?.[0]?.toUpperCase() || "23BCE1024";
 
     // Auto-detect role based on email or default to student
-    const role: UserRole = prefix.includes("admin")
+    const role: UserRole = prefix.includes("master")
+      ? "master_admin"
+      : prefix.includes("admin")
       ? "admin"
       : prefix.includes("mod") || prefix.includes("council")
       ? "moderator"
+      : prefix.includes("club") || prefix.includes("ieee") || prefix.includes("acm")
+      ? "club_manager"
+      : prefix.includes("partner") || prefix.includes("biz") || prefix.includes("pizza")
+      ? "business_advertiser"
       : "student";
 
     const authenticatedUser: StudentUser = {
@@ -187,7 +207,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!validateVitapEmail(email)) {
       return {
         success: false,
-        error: "Access restricted: Only @vitap.ac.in student emails are allowed to register.",
+        error: "Access restricted: Please register using a valid @vitapstudent.ac.in or @vitap.ac.in email.",
+      };
+    }
+
+    if (password && password.length < 6) {
+      return {
+        success: false,
+        error: "Security requirement: Password must be at least 6 characters.",
       };
     }
 
