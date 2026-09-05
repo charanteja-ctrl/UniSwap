@@ -1,3 +1,16 @@
+export type UserRole = "student" | "moderator" | "admin";
+
+export interface StudentUser {
+  id: string;
+  name: string;
+  email: string;
+  regNo: string;
+  hostel: string;
+  role: UserRole;
+  isVerified: boolean;
+  avatar?: string;
+}
+
 export type ItemCategory = 
   | "Books"
   | "Calculators"
@@ -29,7 +42,7 @@ export interface Product {
   condition: ItemCondition;
   images: string[];
   location: string; // e.g. "MH-2", "Library", "LH-1"
-  status: "ACTIVE" | "PENDING_MEETUP" | "SOLD";
+  status: "ACTIVE" | "PENDING_MEETUP" | "SOLD" | "FLAGGED_MODERATION";
   sellerId: string;
   sellerName: string;
   sellerEmail: string;
@@ -65,6 +78,21 @@ export interface Order {
   paymentStatus: "PENDING" | "PAID" | "FAILED";
   exchangeLocation: string;
   exchangeTime?: string;
+  exchangeQrToken?: string;
+  exchangeOtp?: string;     // 6-digit backup PIN
+  qrScannedAt?: string;
+  handoverConfirmedBy?: string;
+  createdAt: string;
+}
+
+export interface ReportItem {
+  id: string;
+  productId: string;
+  productTitle: string;
+  reportedBy: string;
+  reportedEmail: string;
+  reason: string;
+  status: "PENDING" | "REVIEWED" | "RESOLVED" | "DISMISSED";
   createdAt: string;
 }
 
@@ -93,4 +121,11 @@ export interface VerifyPaymentRequest {
     platformFee: number;
     totalAmount: number;
   };
+}
+
+export interface VerifyQrRequest {
+  orderId: string;
+  qrToken?: string;
+  otp?: string;
+  scannedBy: string; // Seller Name / ID
 }
