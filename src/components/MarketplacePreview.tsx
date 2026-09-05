@@ -8,7 +8,7 @@ import RazorpayCheckoutButton from "@/components/RazorpayCheckoutButton";
 import OfferModal from "@/components/OfferModal";
 import CampusChatDrawer from "@/components/CampusChatDrawer";
 import AISmartSearch, { AISearchFilters } from "@/components/AISmartSearch";
-import CampusMapExplorer from "@/components/CampusMapExplorer";
+import LeafletCampusMap from "@/components/LeafletCampusMap";
 import {
   MapPin,
   ShieldCheck,
@@ -140,12 +140,12 @@ export default function MarketplacePreview({
       {/* AI Smart Search Bar */}
       <AISmartSearch onFilterChange={setSearchFilters} />
 
-      {/* Collapsible Interactive Campus Map Explorer */}
+      {/* Collapsible Interactive Campus Map Explorer (Real Leaflet.js + OpenStreetMap) */}
       {showMap && (
         <div className="animate-in fade-in zoom-in-95 duration-200">
-          <CampusMapExplorer
-            selectedLocation={mapLocation}
-            onSelectLocation={(loc) => setMapLocation(loc)}
+          <LeafletCampusMap
+            selectedLocationName={mapLocation}
+            onSelectLocation={(loc) => setMapLocation(loc.name)}
           />
         </div>
       )}

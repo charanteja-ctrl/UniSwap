@@ -24,6 +24,8 @@ import {
   Crown,
   Store,
   Compass,
+  Megaphone,
+  Building,
 } from "lucide-react";
 
 export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
@@ -44,18 +46,36 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
 
   const getRoleBadge = (role: UserRole = "student") => {
     switch (role) {
+      case "master_admin":
+        return {
+          bg: "bg-yellow-500/20 border-yellow-400/50 text-yellow-300",
+          label: "MASTER ADMIN",
+          icon: Crown,
+        };
       case "super_admin":
       case "admin":
         return {
           bg: "bg-purple-500/20 border-purple-400/40 text-purple-300",
           label: "ADMIN",
-          icon: Crown,
+          icon: Shield,
         };
       case "moderator":
         return {
           bg: "bg-blue-500/20 border-blue-400/40 text-blue-300",
           label: "MODERATOR",
           icon: ShieldCheck,
+        };
+      case "club_manager":
+        return {
+          bg: "bg-cyan-500/20 border-cyan-400/40 text-cyan-300",
+          label: "CLUB LEAD",
+          icon: Building,
+        };
+      case "business_advertiser":
+        return {
+          bg: "bg-amber-500/20 border-amber-400/40 text-amber-300",
+          label: "PARTNER",
+          icon: Store,
         };
       default:
         return {
@@ -94,7 +114,11 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
           {/* Navigation Items */}
           <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-blue-100">
             <Link href="/" className="hover:text-yellow-400 transition-colors">
-              Browse Marketplace
+              Marketplace
+            </Link>
+            <Link href="/ads" className="hover:text-yellow-400 transition-colors flex items-center gap-1.5">
+              <Megaphone className="w-4 h-4 text-yellow-400" />
+              <span>Campus Ads & Deals</span>
             </Link>
             <Link href="/seller" className="hover:text-yellow-400 transition-colors flex items-center gap-1.5">
               <Store className="w-4 h-4 text-amber-400" />
@@ -111,11 +135,13 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
             <Link href="/admin" className="hover:text-yellow-400 transition-colors flex items-center gap-1.5">
               <Shield className="w-4 h-4 text-purple-300" />
               <span>
-                {user?.role === "admin" || user?.role === "super_admin"
+                {user?.role === "master_admin"
+                  ? "Master Admin"
+                  : user?.role === "admin"
                   ? "Admin Command"
                   : user?.role === "moderator"
                   ? "Moderation Hub"
-                  : "Campus Safety"}
+                  : "Governance"}
               </span>
             </Link>
           </nav>
@@ -162,7 +188,7 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
 
                 {/* Dropdown Menu */}
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-3 z-50 animate-in zoom-in-95 space-y-3">
+                  <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-3 z-50 animate-in zoom-in-95 space-y-3">
                     {/* Student Info Box */}
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
                       <div className="text-xs font-bold text-white flex items-center justify-between">
@@ -218,18 +244,68 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
                             setDropdownOpen(false);
                           }}
                           className={`p-1.5 rounded-lg text-center border text-[10px] font-bold transition ${
-                            user.role === "admin" || user.role === "super_admin"
+                            user.role === "admin"
                               ? "bg-purple-500/20 border-purple-400 text-purple-300"
                               : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
                           }`}
                         >
                           👑 Admin
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loginAsRole("master_admin");
+                            setDropdownOpen(false);
+                          }}
+                          className={`p-1.5 rounded-lg text-center border text-[10px] font-bold transition ${
+                            user.role === "master_admin"
+                              ? "bg-yellow-500/20 border-yellow-400 text-yellow-300"
+                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          👑 Master
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loginAsRole("club_manager");
+                            setDropdownOpen(false);
+                          }}
+                          className={`p-1.5 rounded-lg text-center border text-[10px] font-bold transition ${
+                            user.role === "club_manager"
+                              ? "bg-cyan-500/20 border-cyan-400 text-cyan-300"
+                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          🎓 Club Lead
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loginAsRole("business_advertiser");
+                            setDropdownOpen(false);
+                          }}
+                          className={`p-1.5 rounded-lg text-center border text-[10px] font-bold transition ${
+                            user.role === "business_advertiser"
+                              ? "bg-amber-500/20 border-amber-400 text-amber-300"
+                              : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          🏪 Partner
+                        </button>
                       </div>
                     </div>
 
                     {/* Navigation Links inside Dropdown */}
                     <div className="border-t border-slate-800 pt-2 space-y-1 text-xs">
+                      <Link
+                        href="/ads"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition"
+                      >
+                        <Megaphone className="w-3.5 h-3.5 text-yellow-400" />
+                        <span>Campus Ads & Student Deals</span>
+                      </Link>
                       <Link
                         href="/seller"
                         onClick={() => setDropdownOpen(false)}
@@ -252,7 +328,7 @@ export default function Navbar({ onOpenAi }: { onOpenAi?: () => void }) {
                         className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition"
                       >
                         <Shield className="w-3.5 h-3.5 text-purple-400" />
-                        <span>Admin & Moderation Hub</span>
+                        <span>Master Admin Command Center</span>
                       </Link>
                       <button
                         type="button"

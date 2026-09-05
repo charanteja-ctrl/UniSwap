@@ -9,6 +9,25 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "CHAT_MESSAGE",
     "REVIEW_SUBMIT",
   ],
+  club_manager: [
+    "AD_CREATE",
+    "AD_EDIT_OWN",
+    "AD_SUBMIT",
+    "EVENT_CREATE",
+    "EVENT_EDIT",
+    "VIEW_CAMPAIGN_ANALYTICS",
+    "PRODUCT_CREATE",
+    "ORDER_VIEW",
+    "CHAT_MESSAGE",
+  ],
+  business_advertiser: [
+    "AD_CREATE",
+    "AD_EDIT_OWN",
+    "AD_SUBMIT",
+    "DEAL_CREATE",
+    "VIEW_CAMPAIGN_ANALYTICS",
+    "CHAT_MESSAGE",
+  ],
   moderator: [
     "PRODUCT_CREATE",
     "PRODUCT_UPDATE",
@@ -21,7 +40,24 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "CHAT_MESSAGE",
     "REVIEW_SUBMIT",
     "REPORT_REVIEW",
+    "AD_REVIEW",
     "USER_VIEW",
+    "AUDIT_VIEW",
+  ],
+  finance_manager: [
+    "ORDER_VIEW",
+    "PAYMENT_VIEW",
+    "REFUND_MANAGE",
+    "FEE_CONFIG",
+    "VIEW_CAMPAIGN_ANALYTICS",
+    "AUDIT_VIEW",
+  ],
+  support_manager: [
+    "ORDER_VIEW",
+    "ORDER_UPDATE",
+    "REPORT_REVIEW",
+    "USER_VIEW",
+    "CHAT_MESSAGE",
     "AUDIT_VIEW",
   ],
   admin: [
@@ -45,6 +81,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "FEE_CONFIG",
     "REPORT_REVIEW",
     "AUDIT_VIEW",
+    "AD_REVIEW",
+    "AD_APPROVE",
+    "AD_REJECT",
+    "VIEW_CAMPAIGN_ANALYTICS",
   ],
   super_admin: [
     "PRODUCT_CREATE",
@@ -62,11 +102,57 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "USER_VIEW",
     "USER_SUSPEND",
     "ROLE_ASSIGN",
+    "ROLE_CREATE",
     "PAYMENT_VIEW",
     "REFUND_MANAGE",
     "FEE_CONFIG",
     "REPORT_REVIEW",
     "AUDIT_VIEW",
+    "AD_CREATE",
+    "AD_EDIT_OWN",
+    "AD_SUBMIT",
+    "AD_REVIEW",
+    "AD_APPROVE",
+    "AD_REJECT",
+    "EVENT_CREATE",
+    "EVENT_EDIT",
+    "DEAL_CREATE",
+    "VIEW_CAMPAIGN_ANALYTICS",
+    "ALL_PERMISSIONS",
+  ],
+  master_admin: [
+    "PRODUCT_CREATE",
+    "PRODUCT_UPDATE",
+    "PRODUCT_DELETE",
+    "PRODUCT_FEATURE",
+    "ORDER_VIEW",
+    "ORDER_UPDATE",
+    "ORDER_CANCEL",
+    "OFFER_MAKE",
+    "OFFER_ACCEPT",
+    "OFFER_REJECT",
+    "CHAT_MESSAGE",
+    "REVIEW_SUBMIT",
+    "USER_VIEW",
+    "USER_SUSPEND",
+    "ROLE_ASSIGN",
+    "ROLE_CREATE",
+    "PAYMENT_VIEW",
+    "REFUND_MANAGE",
+    "FEE_CONFIG",
+    "REPORT_REVIEW",
+    "AUDIT_VIEW",
+    "AD_CREATE",
+    "AD_EDIT_OWN",
+    "AD_SUBMIT",
+    "AD_REVIEW",
+    "AD_APPROVE",
+    "AD_REJECT",
+    "EVENT_CREATE",
+    "EVENT_EDIT",
+    "DEAL_CREATE",
+    "VIEW_CAMPAIGN_ANALYTICS",
+    "ALL_PERMISSIONS",
   ],
 };
 
@@ -76,6 +162,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 export function hasPermission(user: StudentUser | null, permission: Permission): boolean {
   if (!user) return false;
   const userPermissions = ROLE_PERMISSIONS[user.role] || [];
+  if (userPermissions.includes("ALL_PERMISSIONS")) return true;
   return userPermissions.includes(permission);
 }
 
@@ -105,7 +192,11 @@ export function canAccessRoute(user: StudentUser | null, routePath: string): boo
   }
 
   if (routePath.startsWith("/admin")) {
-    return hasAnyPermission(user, ["PAYMENT_VIEW", "REPORT_REVIEW", "ROLE_ASSIGN", "AUDIT_VIEW"]);
+    return hasAnyPermission(user, ["PAYMENT_VIEW", "REPORT_REVIEW", "ROLE_ASSIGN", "AUDIT_VIEW", "AD_APPROVE", "ALL_PERMISSIONS"]);
+  }
+
+  if (routePath.startsWith("/ads")) {
+    return true; // Public or advertiser dashboard
   }
 
   if (routePath.startsWith("/sell")) {

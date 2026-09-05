@@ -1,4 +1,13 @@
-export type UserRole = "student" | "moderator" | "admin" | "super_admin";
+export type UserRole =
+  | "student"
+  | "moderator"
+  | "admin"
+  | "super_admin"
+  | "master_admin"
+  | "club_manager"
+  | "business_advertiser"
+  | "finance_manager"
+  | "support_manager";
 
 export type Permission =
   | "PRODUCT_CREATE"
@@ -16,11 +25,23 @@ export type Permission =
   | "USER_VIEW"
   | "USER_SUSPEND"
   | "ROLE_ASSIGN"
+  | "ROLE_CREATE"
   | "PAYMENT_VIEW"
   | "REFUND_MANAGE"
   | "FEE_CONFIG"
   | "REPORT_REVIEW"
-  | "AUDIT_VIEW";
+  | "AUDIT_VIEW"
+  | "AD_CREATE"
+  | "AD_EDIT_OWN"
+  | "AD_SUBMIT"
+  | "AD_REVIEW"
+  | "AD_APPROVE"
+  | "AD_REJECT"
+  | "EVENT_CREATE"
+  | "EVENT_EDIT"
+  | "DEAL_CREATE"
+  | "VIEW_CAMPAIGN_ANALYTICS"
+  | "ALL_PERMISSIONS";
 
 export interface StudentUser {
   id: string;
@@ -34,6 +55,8 @@ export interface StudentUser {
   trustScore?: number; // 0 - 100
   successfulTrades?: number;
   rating?: number;
+  clubName?: string;
+  businessName?: string;
 }
 
 export type ItemCategory = 
@@ -53,9 +76,11 @@ export type ItemCondition = "Like New" | "Good" | "Fair" | "Needs Repair";
 export interface CampusLocation {
   id: string;
   name: string;
-  type: "Hostel" | "Academic" | "Recreation" | "Dining";
+  type: "Hostel" | "Academic" | "Recreation" | "Dining" | "Gate";
   code: string;
   description: string;
+  lat?: number;
+  lng?: number;
   coordinates?: { x: number; y: number };
 }
 
@@ -90,6 +115,8 @@ export interface Product {
   demandRating?: "HIGH" | "MEDIUM" | "NORMAL";
   views?: number;
   saves?: number;
+  lat?: number;
+  lng?: number;
   createdAt: string;
 }
 
@@ -125,6 +152,7 @@ export interface Order {
   status: OrderLifecycleStatus | "EXCHANGE_SCHEDULED";
   paymentStatus: "PENDING" | "PAID" | "FAILED";
   exchangeLocation: string;
+  exchangeCoordinates?: { lat: number; lng: number };
   exchangeTime?: string;
   exchangeQrToken?: string;
   exchangeOtp?: string;     // 6-digit backup PIN
@@ -212,10 +240,79 @@ export interface NotificationItem {
   userId: string;
   title: string;
   message: string;
-  type: "OFFER" | "ORDER" | "CHAT" | "SYSTEM" | "ALERT";
+  type: "OFFER" | "ORDER" | "CHAT" | "SYSTEM" | "ALERT" | "AD_APPROVED";
   read: boolean;
   link?: string;
   createdAt: string;
+}
+
+// Advertisements & Campus Ecosystem Types
+export type AdCategory =
+  | "CAMPUS_CLUB"
+  | "TECH_EVENT"
+  | "CULTURAL"
+  | "RESTAURANT"
+  | "CAFE"
+  | "GYM"
+  | "STORE"
+  | "SERVICES";
+
+export type AdStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "PAUSED"
+  | "EXPIRED"
+  | "ARCHIVED";
+
+export interface Advertisement {
+  id: string;
+  title: string;
+  tagline: string;
+  category: AdCategory;
+  advertiserType: "CLUB" | "BUSINESS";
+  advertiserName: string;
+  advertiserVerified: boolean;
+  bannerUrl: string;
+  dealDiscount?: string;
+  couponCode?: string;
+  eventDate?: string;
+  location: string;
+  actionUrl?: string;
+  actionText: string;
+  packageType: "BASIC" | "PREMIUM" | "CAMPUS_FEATURED";
+  pricePaid: number;
+  status: AdStatus;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  createdAt: string;
+}
+
+export interface CampusEvent {
+  id: string;
+  title: string;
+  clubName: string;
+  category: "Technical" | "Cultural" | "Sports" | "Workshop" | "Hackathon";
+  date: string;
+  time: string;
+  venue: string;
+  description: string;
+  posterUrl: string;
+  registrationLink: string;
+  attendeesCount: number;
+  isRegistered?: boolean;
+}
+
+export interface CustomRoleDefinition {
+  id: string;
+  name: string;
+  description: string;
+  permissions: Permission[];
+  userCount: number;
+  isSystemRole?: boolean;
 }
 
 export interface CreateOrderRequest {
