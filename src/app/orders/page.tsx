@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import QRHandoverModal from "@/components/QRHandoverModal";
 import { useAuth } from "@/lib/auth-context";
-import { Order } from "@/lib/types";
+import { Order, Review } from "@/lib/types";
+import { ORDER_LIFECYCLE_STEPS, getOrderStepIndex } from "@/lib/order-state";
 import {
   CheckCircle2,
   Clock,
@@ -18,6 +19,9 @@ import {
   Camera,
   KeyRound,
   Sparkles,
+  Star,
+  Send,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,6 +34,12 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [modalMode, setModalMode] = useState<"buyer" | "seller">("buyer");
   const [isQrOpen, setIsQrOpen] = useState(false);
+
+  // Review state
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [reviewsSubmitted, setReviewsSubmitted] = useState<Record<string, Review>>({});
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -50,7 +60,6 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
-  // Demo fallback orders if database or mock orders are empty
   const displayOrders = orders.length > 0 ? orders : [
     {
       id: "demo-ord-1",
@@ -114,8 +123,35 @@ export default function OrdersPage() {
 
   const handleVerifiedOrder = (updated: Order) => {
     setOrders((prev) =>
-      prev.map((o) => (o.orderId === updated.orderId ? { ...o, ...updated, status: "COMPLETED" } : o))
+      prev.map((o) =>
+        o.orderId === updated.orderId ? { ...o, ...updated, status: "COMPLETED" } : o
+      )
     );
+  };
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewOrder) return;
+
+    const newReview: Review = {
+      id: `rev-${Date.now()}`,
+      orderId: reviewOrder.orderId,
+      productId: reviewOrder.productId,
+      productTitle: reviewOrder.productTitle,
+      reviewerId: user?.id || "usr_student",
+      reviewerName: user?.name || "Charan Teja",
+      reviewerRegNo: user?.regNo || "23BCE1024",
+      revieweeId: reviewOrder.sellerId,
+      revieweeName: reviewOrder.sellerName,
+      rating,
+      comment,
+      verifiedPurchase: true,
+      createdAt: new Date().toLocaleDateString(),
+    };
+
+    setReviewsSubmitted((prev) => ({ ...prev, [reviewOrder.orderId]: newReview }));
+    setReviewOrder(null);
+    setComment("");
   };
 
   return (
@@ -125,15 +161,15 @@ export default function OrdersPage() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold uppercase tracking-wider mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold uppercase tracking-wider mb-2">
               <QrCode className="w-3.5 h-3.5 text-blue-600" />
-              <span>Campus Escrow & QR Verification</span>
+              <span>Campus Escrow & Order Lifecycle State Machine</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              My Orders & Meetup Handover
+              My Orders & Campus Meetup Verification
             </h1>
             <p className="text-sm text-slate-600 mt-1">
-              Verify campus physical trades at Central Library, Hostels, or Gazebo via dynamic QR code and 6-digit OTP.
+              Track state transitions, verified HMAC Razorpay signatures, dynamic QR tokens, and submit verified peer reviews.
             </p>
           </div>
 
@@ -147,14 +183,16 @@ export default function OrdersPage() {
         </div>
 
         {/* Orders list */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           {displayOrders.map((order) => {
             const isCompleted = order.status === "COMPLETED" || !!order.qrScannedAt;
+            const currentStepIdx = getOrderStepIndex(order.status);
+            const userReview = reviewsSubmitted[order.orderId];
 
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-5 hover:shadow-md transition"
+                className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 space-y-6 hover:shadow-md transition"
               >
                 {/* Header row */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -177,7 +215,11 @@ export default function OrdersPage() {
                         Order ID: <strong>{order.razorpayOrderId || order.orderId}</strong>
                       </div>
                       <div className="text-xs text-slate-400">
-                        Date: {new Date(order.createdAt).toLocaleDateString()} • {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        Date: {new Date(order.createdAt).toLocaleDateString()} •{" "}
+                        {new Date(order.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
                   </div>
@@ -188,17 +230,48 @@ export default function OrdersPage() {
                     </span>
                     {isCompleted ? (
                       <span className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Handover Completed
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Settled & Handed Over
                       </span>
                     ) : (
                       <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1.5 animate-pulse">
-                        <Clock className="w-3.5 h-3.5 text-amber-700" /> Pending Handover
+                        <Clock className="w-3.5 h-3.5 text-amber-700" /> Ready for Meetup
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Order Info Grid */}
+                {/* State Machine Progress Stepper */}
+                <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80 space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    Order Lifecycle State Machine:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {ORDER_LIFECYCLE_STEPS.map((step, idx) => {
+                      const stepNumber = idx + 1;
+                      const isPassed = currentStepIdx >= stepNumber;
+                      const isCurrent = currentStepIdx === stepNumber;
+
+                      return (
+                        <div
+                          key={step.status}
+                          className={`p-2.5 rounded-xl border text-left transition ${
+                            isPassed
+                              ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                              : "bg-white border-slate-200 text-slate-400"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-[10px] font-bold mb-1">
+                            <span>Step 0{stepNumber}</span>
+                            {isPassed && <span className="text-emerald-600">✓</span>}
+                          </div>
+                          <div className="font-bold text-xs">{step.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Order Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="space-y-1">
                     <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
@@ -215,7 +288,7 @@ export default function OrdersPage() {
 
                   <div className="space-y-1">
                     <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
-                      Meetup Spot & Time
+                      Campus Meetup Spot
                     </div>
                     <div className="font-semibold text-blue-900 flex items-center gap-1 text-xs">
                       <MapPin className="w-3.5 h-3.5 text-blue-600" />
@@ -227,44 +300,76 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
+                  {/* Payment Ledger Breakdown */}
                   <div className="space-y-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                     <div className="text-xs text-slate-500 uppercase tracking-wide font-semibold">
-                      Payment Breakdown
+                      Payment Ledger
                     </div>
                     <div className="flex justify-between text-xs text-slate-600">
-                      <span>Item Price:</span>
+                      <span>Seller Payout:</span>
                       <span>₹{order.itemAmount}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-600">
                       <span>UniSwap 2% Fee:</span>
-                      <span>₹{order.platformFee}</span>
+                      <span className="text-blue-700 font-bold">₹{order.platformFee}</span>
                     </div>
                     <div className="flex justify-between text-xs font-bold text-slate-900 pt-1 border-t border-slate-200">
-                      <span>Total Paid:</span>
+                      <span>Total Escrow Paid:</span>
                       <span className="text-emerald-700">₹{order.totalAmount}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Handover Actions & Verification Status */}
+                {/* Actions & Verified Reviews */}
                 {isCompleted ? (
-                  <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-200 text-emerald-800 flex items-center justify-center font-bold">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-emerald-950">
-                          Physical Handover Verified at {order.exchangeLocation}
+                  <div className="space-y-3">
+                    <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-900">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-200 text-emerald-800 flex items-center justify-center font-bold">
+                          <CheckCircle2 className="w-5 h-5" />
                         </div>
-                        <div className="text-[11px] text-emerald-700">
-                          Settled via QR verification on {order.qrScannedAt ? new Date(order.qrScannedAt).toLocaleString() : "Campus Handover"} • Escrow released.
+                        <div>
+                          <div className="font-bold text-emerald-950">
+                            Physical Handover Settled at {order.exchangeLocation}
+                          </div>
+                          <div className="text-[11px] text-emerald-700">
+                            Verified on {order.qrScannedAt ? new Date(order.qrScannedAt).toLocaleString() : "Campus Handover"} • Escrow funds released to {order.sellerName}.
+                          </div>
                         </div>
                       </div>
+
+                      {/* Review Trigger Button */}
+                      {!userReview && (
+                        <button
+                          type="button"
+                          onClick={() => setReviewOrder(order)}
+                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Star className="w-3.5 h-3.5 text-yellow-300 fill-current" />
+                          <span>Rate Seller Experience</span>
+                        </button>
+                      )}
                     </div>
-                    <span className="font-mono text-[11px] font-bold text-emerald-800 bg-white px-2.5 py-1 rounded-lg border border-emerald-300">
-                      STATUS: SETTLED
-                    </span>
+
+                    {/* Display Submitted Verified Review */}
+                    {userReview && (
+                      <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1 text-amber-500">
+                            {[...Array(userReview.rating)].map((_, i) => (
+                              <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                            ))}
+                            <span className="text-[11px] font-bold text-slate-700 ml-1">
+                              {userReview.rating}.0 / 5.0
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" /> Verified Student Review
+                          </span>
+                        </div>
+                        <p className="text-slate-700 italic">&quot;{userReview.comment}&quot;</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-blue-50/60 border border-blue-200 rounded-2xl p-4 space-y-3">
@@ -272,15 +377,14 @@ export default function OrdersPage() {
                       <div>
                         <div className="font-bold text-xs text-blue-950 flex items-center gap-1.5">
                           <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Campus Handover Verification Options</span>
+                          <span>Campus Handover QR Verification</span>
                         </div>
                         <p className="text-[11px] text-blue-800">
-                          Meet the peer in person. Show QR or scan it to release escrow payment.
+                          Meet peer in person. Show QR or scan it to release escrow payment.
                         </p>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {/* Buyer QR Button */}
                         <button
                           type="button"
                           onClick={() => handleOpenBuyerQR(order)}
@@ -290,7 +394,6 @@ export default function OrdersPage() {
                           <span>Show Handover QR (Buyer)</span>
                         </button>
 
-                        {/* Seller Scan Button */}
                         <button
                           type="button"
                           onClick={() => handleOpenSellerScan(order)}
@@ -328,6 +431,68 @@ export default function OrdersPage() {
           onClose={() => setIsQrOpen(false)}
           onVerified={handleVerifiedOrder}
         />
+      )}
+
+      {/* Review Modal */}
+      {reviewOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base text-slate-900">
+                Rate Seller: {reviewOrder.sellerName}
+              </h3>
+              <button
+                onClick={() => setReviewOrder(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              <div className="space-y-1 text-center">
+                <label className="text-xs font-bold text-slate-600 uppercase">Select Rating</label>
+                <div className="flex justify-center gap-2 pt-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setRating(s)}
+                      className="p-1 hover:scale-110 transition"
+                    >
+                      <Star
+                        className={`w-7 h-7 ${
+                          s <= rating
+                            ? "text-yellow-400 fill-current"
+                            : "text-slate-200"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 uppercase">Your Review</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="e.g. Accurate product description, prompt meetup at Central Library!"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-[#0A2540] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition"
+              >
+                Submit Verified Campus Review
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

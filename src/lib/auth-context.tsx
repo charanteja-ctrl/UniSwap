@@ -50,6 +50,15 @@ export const DEMO_USERS: Record<UserRole, StudentUser> = {
     role: "admin",
     isVerified: true,
   },
+  super_admin: {
+    id: "usr_super_admin",
+    name: "Platform Super Admin",
+    email: "superadmin.uniswap@vitap.ac.in",
+    regNo: "ROOT-001",
+    hostel: "Office of Director",
+    role: "super_admin",
+    isVerified: true,
+  },
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

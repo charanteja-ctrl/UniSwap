@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { useAuth, DEMO_USERS } from "@/lib/auth-context";
-import { UserRole, ReportItem } from "@/lib/types";
+import { UserRole, ReportItem, AuditLog } from "@/lib/types";
+import { hasPermission } from "@/lib/permissions";
 import {
   DollarSign,
   TrendingUp,
@@ -23,16 +24,25 @@ import {
   Crown,
   Sparkles,
   Lock,
+  Activity,
+  FileText,
+  Server,
+  Shield,
+  RefreshCw,
 } from "lucide-react";
 
 export default function AdminPage() {
   const { user, loginAsRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<"revenue" | "moderation" | "rbac">("revenue");
+  const [activeTab, setActiveTab] = useState<"revenue" | "moderation" | "rbac" | "audit" | "health">("revenue");
 
   // Config settings
   const [feePercent, setFeePercent] = useState<number>(2);
   const [domain, setDomain] = useState<string>("vitap.ac.in");
   const [isSaved, setIsSaved] = useState(false);
+
+  // Health check state
+  const [healthData, setHealthData] = useState<any>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // Mock moderation items
   const [reports, setReports] = useState<ReportItem[]>([
@@ -68,7 +78,55 @@ export default function AdminPage() {
     },
   ]);
 
-  // Mock student directory for RBAC
+  // Audit Logs Ledger
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
+    {
+      id: "aud-101",
+      actorId: "usr_admin_platform",
+      actorName: "UniSwap Administrator",
+      actorRole: "admin",
+      action: "PLATFORM_FEE_CONFIG",
+      resource: "MarketplaceFee",
+      details: "Set campus marketplace fee rate to 2.0% (auto-deducted via Razorpay Route)",
+      timestamp: "10:05 AM Today",
+      ipAddress: "172.16.20.14 (VIT-AP Admin WiFi)",
+    },
+    {
+      id: "aud-102",
+      actorId: "usr_mod_sundaram",
+      actorName: "Student Council Lead",
+      actorRole: "moderator",
+      action: "MODERATION_ACTION",
+      resource: "Listing #prod-fake-1",
+      details: "Flagged counterfeit Casio calculator for engineering exam review",
+      timestamp: "09:42 AM Today",
+      ipAddress: "172.16.14.88 (Hostel MH-1 Desk)",
+    },
+    {
+      id: "aud-103",
+      actorId: "usr_admin_platform",
+      actorName: "UniSwap Administrator",
+      actorRole: "admin",
+      action: "ROLE_ELEVATION",
+      resource: "User #usr_mod_sundaram",
+      details: "Promoted student to Moderator role with REPORT_REVIEW & AUDIT_VIEW privileges",
+      timestamp: "Yesterday at 6:15 PM",
+      ipAddress: "172.16.20.14",
+    },
+    {
+      id: "aud-104",
+      actorId: "usr_admin_platform",
+      actorName: "UniSwap Administrator",
+      actorRole: "admin",
+      action: "ESCROW_SETTLEMENT_RELEASE",
+      resource: "Order #order_QeX9zK9j8L2v",
+      details: "Released ₹833 to seller Rahul Sharma following verified SVG QR handover at Central Library",
+      timestamp: "Yesterday at 4:35 PM",
+      ipAddress: "172.16.20.14",
+    },
+  ]);
+
+  // Student directory for RBAC
   const [studentDirectory, setStudentDirectory] = useState([
     {
       id: "usr-1",
@@ -77,6 +135,7 @@ export default function AdminPage() {
       regNo: "23BCE1024",
       hostel: "MH-2",
       role: "student" as UserRole,
+      trustScore: 98,
       verifiedAt: "2026-08-10",
     },
     {
@@ -86,6 +145,7 @@ export default function AdminPage() {
       regNo: "MOD-2026",
       hostel: "MH-1",
       role: "moderator" as UserRole,
+      trustScore: 99,
       verifiedAt: "2026-07-15",
     },
     {
@@ -95,6 +155,7 @@ export default function AdminPage() {
       regNo: "ADMIN-01",
       hostel: "Central Admin",
       role: "admin" as UserRole,
+      trustScore: 100,
       verifiedAt: "2026-06-01",
     },
     {
@@ -104,11 +165,11 @@ export default function AdminPage() {
       regNo: "23BCE1420",
       hostel: "LH-1",
       role: "student" as UserRole,
+      trustScore: 94,
       verifiedAt: "2026-08-14",
     },
   ]);
 
-  // Mock campus metrics
   const stats = {
     gmv: 48650,
     revenue: 973, // 2% of GMV
@@ -118,9 +179,41 @@ export default function AdminPage() {
     avgOrderValue: 760,
   };
 
+  const fetchHealth = async () => {
+    setHealthLoading(true);
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      setHealthData(data);
+    } catch (e) {
+      console.error("Health check error:", e);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "health") {
+      fetchHealth();
+    }
+  }, [activeTab]);
+
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaved(true);
+    // Add audit log
+    const newAudit: AuditLog = {
+      id: `aud-${Date.now()}`,
+      actorId: user?.id || "usr_admin",
+      actorName: user?.name || "Admin",
+      actorRole: user?.role || "admin",
+      action: "PLATFORM_CONFIG_UPDATE",
+      resource: "MarketplaceFee & Domain",
+      details: `Updated fee to ${feePercent}% and domain to ${domain}`,
+      timestamp: "Just now",
+      ipAddress: "127.0.0.1 (Localhost)",
+    };
+    setAuditLogs((prev) => [newAudit, ...prev]);
     setTimeout(() => setIsSaved(false), 2500);
   };
 
@@ -128,12 +221,38 @@ export default function AdminPage() {
     setReports((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status: action } : r))
     );
+    const rep = reports.find((r) => r.id === id);
+    const newAudit: AuditLog = {
+      id: `aud-${Date.now()}`,
+      actorId: user?.id || "usr_mod",
+      actorName: user?.name || "Moderator",
+      actorRole: user?.role || "moderator",
+      action: action === "RESOLVED" ? "LISTING_TAKEDOWN_WARN" : "REPORT_DISMISSED",
+      resource: rep?.productTitle || "Reported Item",
+      details: action === "RESOLVED" ? "Takedown enforced and warning issued to student" : "No violation found",
+      timestamp: "Just now",
+      ipAddress: "127.0.0.1",
+    };
+    setAuditLogs((prev) => [newAudit, ...prev]);
   };
 
   const handleRoleChange = (id: string, newRole: UserRole) => {
     setStudentDirectory((prev) =>
       prev.map((s) => (s.id === id ? { ...s, role: newRole } : s))
     );
+    const student = studentDirectory.find((s) => s.id === id);
+    const newAudit: AuditLog = {
+      id: `aud-${Date.now()}`,
+      actorId: user?.id || "usr_admin",
+      actorName: user?.name || "Admin",
+      actorRole: user?.role || "admin",
+      action: "ROLE_ASSIGNMENT",
+      resource: `User ${student?.name} (${student?.regNo})`,
+      details: `Role reassigned to ${newRole.toUpperCase()}`,
+      timestamp: "Just now",
+      ipAddress: "127.0.0.1",
+    };
+    setAuditLogs((prev) => [newAudit, ...prev]);
   };
 
   const currentRole = user?.role || "student";
@@ -143,18 +262,18 @@ export default function AdminPage() {
       <Navbar />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* Header & Role Switcher Banner */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm">
+        {/* Header & Persona Switcher */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-sm">
           <div>
             <div className="flex items-center gap-2 text-xs font-bold text-blue-700 uppercase tracking-wide">
               <ShieldCheck className="w-4 h-4 text-blue-600" />
-              <span>VIT-AP University Governance & RBAC</span>
+              <span>UniSwap Command & Governance Center</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
-              Admin, Moderation & Revenue Hub
+              Admin, Moderation & Audit Hub
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-              Current Persona: <strong className="text-slate-900">{user?.name}</strong> • Role:{" "}
+              Active Persona: <strong className="text-slate-900">{user?.name}</strong> • Role:{" "}
               <span
                 className={`font-mono font-bold uppercase px-2 py-0.5 rounded text-xs ${
                   currentRole === "admin"
@@ -169,7 +288,7 @@ export default function AdminPage() {
             </p>
           </div>
 
-          {/* Quick 1-Click Role Switcher Bar */}
+          {/* 1-Click Role Switcher */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider hidden lg:inline">
               Switch Persona:
@@ -177,7 +296,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => loginAsRole("student")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                 currentRole === "student"
                   ? "bg-emerald-600 text-white shadow-sm"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -188,7 +307,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => loginAsRole("moderator")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                 currentRole === "moderator"
                   ? "bg-blue-600 text-white shadow-sm"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -199,7 +318,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={() => loginAsRole("admin")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                 currentRole === "admin"
                   ? "bg-purple-600 text-white shadow-sm"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -211,11 +330,11 @@ export default function AdminPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 gap-2">
+        <div className="flex border-b border-slate-200 gap-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("revenue")}
-            className={`pb-3 px-4 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
               activeTab === "revenue"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -224,10 +343,11 @@ export default function AdminPage() {
             <DollarSign className="w-4 h-4" />
             <span>Platform Revenue & GMV</span>
           </button>
+
           <button
             type="button"
             onClick={() => setActiveTab("moderation")}
-            className={`pb-3 px-4 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
               activeTab === "moderation"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
@@ -236,26 +356,51 @@ export default function AdminPage() {
             <ShieldAlert className="w-4 h-4 text-amber-500" />
             <span>Moderation Queue ({reports.filter((r) => r.status === "PENDING").length})</span>
           </button>
+
           <button
             type="button"
             onClick={() => setActiveTab("rbac")}
-            className={`pb-3 px-4 font-bold text-sm border-b-2 transition flex items-center gap-2 ${
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
               activeTab === "rbac"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <Users className="w-4 h-4 text-purple-600" />
-            <span>Role-Based Access Control (RBAC)</span>
+            <span>RBAC Directory</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("audit")}
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
+              activeTab === "audit"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <FileText className="w-4 h-4 text-indigo-600" />
+            <span>Audit Logs ({auditLogs.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("health")}
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
+              activeTab === "health"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-600" />
+            <span>System Health</span>
           </button>
         </div>
 
-        {/* TAB 1: REVENUE & PLATFORM METRICS */}
+        {/* TAB 1: REVENUE */}
         {activeTab === "revenue" && (
           <div className="space-y-8 animate-fadeIn">
-            {/* Top Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {/* GMV */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider">Total Campus GMV</span>
@@ -267,7 +412,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* UniSwap 2% Revenue */}
               <div className="bg-gradient-to-br from-[#0A2540] to-blue-900 text-white p-6 rounded-3xl shadow-md space-y-2">
                 <div className="flex items-center justify-between text-blue-200">
                   <span className="text-xs font-bold uppercase tracking-wider">UniSwap 2% Cut</span>
@@ -279,7 +423,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Total Orders */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider">Orders Completed</span>
@@ -291,7 +434,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Verified Students */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
                 <div className="flex items-center justify-between text-slate-500">
                   <span className="text-xs font-bold uppercase tracking-wider">Verified Students</span>
@@ -301,39 +443,6 @@ export default function AdminPage() {
                 <div className="text-xs text-emerald-600 font-semibold">
                   100% @vitap.ac.in emails
                 </div>
-              </div>
-            </div>
-
-            {/* Razorpay & Supabase Status Banner */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>Razorpay Standard Checkout Status</span>
-                  </h3>
-                  <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
-                    Test Mode Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Orders created at <code>/api/create-order</code> and verified using HMAC-SHA256 at <code>/api/verify-payment</code> with environment credentials.
-                </p>
-              </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                    <Database className="w-4 h-4 text-blue-600" />
-                    <span>Supabase PostgreSQL Cloud DB</span>
-                  </h3>
-                  <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">
-                    Connected
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600">
-                  Ref: <code>xrnofwzaglylwrrxyfyh.supabase.co</code>. Row Level Security enabled for products, profiles, and order tables.
-                </p>
               </div>
             </div>
 
@@ -398,75 +507,10 @@ export default function AdminPage() {
                 </div>
               </form>
             </div>
-
-            {/* Recent Transactions Table */}
-            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-bold text-base text-slate-900">Recent Campus Razorpay Transactions</h3>
-                <span className="text-xs text-slate-500">Live transaction ledger</span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
-                    <tr>
-                      <th className="p-3.5">Razorpay Order ID</th>
-                      <th className="p-3.5">Item</th>
-                      <th className="p-3.5">Seller</th>
-                      <th className="p-3.5">Buyer</th>
-                      <th className="p-3.5">Item Value</th>
-                      <th className="p-3.5">UniSwap Fee (2%)</th>
-                      <th className="p-3.5">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3.5 font-mono font-semibold text-slate-900">order_QeX9zK9j8L2v</td>
-                      <td className="p-3.5 font-medium text-slate-900">Casio FX-991CW Calculator</td>
-                      <td className="p-3.5">Rahul (MH-2)</td>
-                      <td className="p-3.5">Charan (23BCE...)</td>
-                      <td className="p-3.5 font-semibold">₹850</td>
-                      <td className="p-3.5 font-bold text-blue-700">₹17</td>
-                      <td className="p-3.5">
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
-                          PAID ✓
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3.5 font-mono font-semibold text-slate-900">order_P8fJ4dKm9A1c</td>
-                      <td className="p-3.5 font-medium text-slate-900">Higher Engg Mathematics</td>
-                      <td className="p-3.5">Priya V. (LH-1)</td>
-                      <td className="p-3.5">Arun (24BME...)</td>
-                      <td className="p-3.5 font-semibold">₹380</td>
-                      <td className="p-3.5 font-bold text-blue-700">₹8</td>
-                      <td className="p-3.5">
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
-                          PAID ✓
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-slate-50">
-                      <td className="p-3.5 font-mono font-semibold text-slate-900">order_M3vL9rTa6X7q</td>
-                      <td className="p-3.5 font-medium text-slate-900">Mini Drafter Engineering Kit</td>
-                      <td className="p-3.5">Karthik (MH-1)</td>
-                      <td className="p-3.5">Sneha (LH-2)</td>
-                      <td className="p-3.5 font-semibold">₹450</td>
-                      <td className="p-3.5 font-bold text-blue-700">₹9</td>
-                      <td className="p-3.5">
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
-                          PAID ✓
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* TAB 2: MODERATION QUEUE */}
+        {/* TAB 2: MODERATION */}
         {activeTab === "moderation" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
@@ -477,7 +521,7 @@ export default function AdminPage() {
                     <span>Campus Safety & Flagged Item Reports</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Authorized for <strong>Moderators</strong> and <strong>Admins</strong>. Review student flagged listings to prevent fraud, counterfeits, and prohibited items.
+                    Authorized for <strong>Moderators</strong> and <strong>Admins</strong>. Review student flagged listings to prevent fraud and exam violations.
                   </p>
                 </div>
                 <span className="text-xs bg-amber-100 text-amber-900 font-bold px-3 py-1 rounded-full">
@@ -551,7 +595,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* TAB 3: STUDENT DIRECTORY & RBAC */}
+        {/* TAB 3: RBAC DIRECTORY */}
         {activeTab === "rbac" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
@@ -580,9 +624,9 @@ export default function AdminPage() {
                       <th className="p-3.5">Student</th>
                       <th className="p-3.5">Registration No.</th>
                       <th className="p-3.5">Hostel</th>
-                      <th className="p-3.5">Email (@vitap.ac.in)</th>
+                      <th className="p-3.5">Trust Score</th>
                       <th className="p-3.5">Current Role</th>
-                      <th className="p-3.5 text-right">Assign New Role</th>
+                      <th className="p-3.5 text-right">Assign Role</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -592,13 +636,22 @@ export default function AdminPage() {
                           <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
                             {student.name.charAt(0)}
                           </div>
-                          <span>{student.name}</span>
+                          <div>
+                            <div>{student.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono font-normal">
+                              {student.email}
+                            </div>
+                          </div>
                         </td>
                         <td className="p-3.5 font-mono font-semibold text-slate-800">
                           {student.regNo}
                         </td>
                         <td className="p-3.5">{student.hostel}</td>
-                        <td className="p-3.5 font-mono text-slate-600">{student.email}</td>
+                        <td className="p-3.5">
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {student.trustScore}/100
+                          </span>
+                        </td>
                         <td className="p-3.5">
                           <span
                             className={`font-mono font-bold text-[10px] uppercase px-2 py-0.5 rounded border ${
@@ -631,6 +684,161 @@ export default function AdminPage() {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 4: AUDIT LOGS */}
+        {activeTab === "audit" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-600" />
+                    <span>Security & Governance Audit Ledger</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Immutable security log tracking role elevation, fee configuration, escrow payout releases, and moderation decisions.
+                  </p>
+                </div>
+                <span className="text-xs bg-indigo-100 text-indigo-900 font-bold px-3 py-1 rounded-full">
+                  Immutable Audit Trail
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                    <tr>
+                      <th className="p-3.5">Timestamp</th>
+                      <th className="p-3.5">Action</th>
+                      <th className="p-3.5">Actor</th>
+                      <th className="p-3.5">Target Resource</th>
+                      <th className="p-3.5">Audit Details</th>
+                      <th className="p-3.5">IP Metadata</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                    {auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-50 font-mono">
+                        <td className="p-3.5 text-slate-500">{log.timestamp}</td>
+                        <td className="p-3.5">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-900 font-sans">
+                          {log.actorName} ({log.actorRole.toUpperCase()})
+                        </td>
+                        <td className="p-3.5 font-sans text-slate-800">{log.resource}</td>
+                        <td className="p-3.5 font-sans text-slate-600 max-w-xs">{log.details}</td>
+                        <td className="p-3.5 text-slate-400">{log.ipAddress}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: SYSTEM HEALTH */}
+        {activeTab === "health" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                    <Server className="w-5 h-5 text-emerald-600" />
+                    <span>Real-Time Production Health Monitoring</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Live endpoint diagnostics polled from <code>/api/health</code>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchHealth}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${healthLoading ? "animate-spin" : ""}`} />
+                  <span>Refresh Health</span>
+                </button>
+              </div>
+            </div>
+
+            {healthData ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold uppercase text-slate-400">Database</span>
+                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
+                      {healthData.services.database.status}
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-slate-900">
+                    {healthData.services.database.provider}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Endpoint: {healthData.services.database.endpoint}
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold uppercase text-slate-400">Payment Gateway</span>
+                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
+                      {healthData.services.paymentGateway.status}
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-slate-900">
+                    {healthData.services.paymentGateway.provider}
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    HMAC Signature: Active • Standard Checkout
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold uppercase text-slate-400">AI Intelligence</span>
+                    <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">
+                      {healthData.services.aiEngine.status}
+                    </span>
+                  </div>
+                  <div className="font-bold text-sm text-slate-900">
+                    {healthData.services.aiEngine.provider}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono">
+                    Model: {healthData.services.aiEngine.model}
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-2 sm:col-span-2 lg:col-span-3">
+                  <div className="font-bold text-xs uppercase text-slate-400">Runtime Telemetry</div>
+                  <div className="grid grid-cols-3 gap-3 text-xs pt-1">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Server Uptime</span>
+                      <strong className="text-slate-900 font-mono">{healthData.systemMetrics.uptimeSeconds}s</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Heap Memory</span>
+                      <strong className="text-slate-900 font-mono">{healthData.systemMetrics.memoryUsageMB} MB</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Gateway Response Latency</span>
+                      <strong className="text-emerald-600 font-mono">{healthData.systemMetrics.responseTimeMs} ms</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
+                Polling system health metrics...
+              </div>
+            )}
           </div>
         )}
       </main>
