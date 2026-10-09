@@ -1,17 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // If deployed on Vercel as frontend with a separate Render backend,
-  // proxy all /api/* requests to the Render backend URL seamlessly without CORS issues.
+  // When NEXT_PUBLIC_BACKEND_URL is set (e.g. Vercel frontend talking to Render backend),
+  // use 'beforeFiles' rewrites so Next.js proxies all /api/* requests to the Render backend
+  // BEFORE checking local route handlers. This eliminates missing-secret errors on the frontend host!
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL;
     if (!backendUrl) return [];
 
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${backendUrl.replace(/\/$/, "")}/api/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${backendUrl.replace(/\/$/, "")}/api/:path*`,
+        },
+      ],
+    };
   },
 
   // Enable CORS headers for direct API calls to the Render backend

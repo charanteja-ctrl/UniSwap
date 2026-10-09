@@ -90,9 +90,9 @@ export default function RazorpayCheckoutButton({
         throw new Error(orderData.error || "Failed to create payment order with backend.");
       }
 
-      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      const razorpayKey = orderData.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!razorpayKey) {
-        throw new Error("NEXT_PUBLIC_RAZORPAY_KEY_ID is not configured in environment variables.");
+        throw new Error("Razorpay Key ID is not configured. Please set NEXT_PUBLIC_RAZORPAY_KEY_ID.");
       }
 
       // 3. Configure Razorpay Standard Checkout options

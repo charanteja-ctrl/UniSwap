@@ -1,17 +1,56 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
+/**
+ * Safely inspects Razorpay configuration status without logging or exposing secrets.
+ */
+export function checkRazorpayConfig(): {
+  isConfigured: boolean;
+  hasKeyId: boolean;
+  hasKeySecret: boolean;
+  keyIdPrefix?: string;
+  error?: string;
+} {
+  const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+  const hasKeyId = Boolean(key_id && key_id.trim().length > 0);
+  const hasKeySecret = Boolean(key_secret && key_secret.trim().length > 0);
+
+  if (!hasKeyId || !hasKeySecret) {
+    const missing: string[] = [];
+    if (!hasKeyId) missing.push("RAZORPAY_KEY_ID");
+    if (!hasKeySecret) missing.push("RAZORPAY_KEY_SECRET");
+
+    return {
+      isConfigured: false,
+      hasKeyId,
+      hasKeySecret,
+      error: `Razorpay credentials missing from server environment: ${missing.join(", ")}. Please configure them in the backend environment variables.`,
+    };
+  }
+
+  return {
+    isConfigured: true,
+    hasKeyId: true,
+    hasKeySecret: true,
+    keyIdPrefix: key_id?.substring(0, 8), // Safe prefix e.g. "rzp_test"
+  };
+}
+
 export function getRazorpayClient(): Razorpay {
-  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
   if (!key_id || !key_secret) {
-    throw new Error("Razorpay credentials (RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET) are missing from environment variables.");
+    throw new Error(
+      "Razorpay credentials (RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET) are missing from environment variables."
+    );
   }
 
   return new Razorpay({
-    key_id,
-    key_secret,
+    key_id: key_id.trim(),
+    key_secret: key_secret.trim(),
   });
 }
 
