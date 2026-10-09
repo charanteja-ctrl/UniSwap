@@ -7,11 +7,11 @@ export const metadata: Metadata = {
   description: "Exclusive student marketplace for VIT-AP University. Buy, sell, and swap pre-owned engineering books, calculators, and electronics safely with Razorpay Standard Checkout and Groq AI.",
   icons: {
     icon: [
+      { url: "/logo.png", type: "image/png" },
       { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon.svg", sizes: "any" },
     ],
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
@@ -23,8 +23,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="icon" type="image/png" href="/logo.png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className="min-h-screen bg-[#f9fafb] text-[#0a1b33] antialiased flex flex-col justify-between selection:bg-yellow-200">
         <AuthProvider>

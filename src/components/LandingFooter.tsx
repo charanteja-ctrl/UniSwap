@@ -13,7 +13,7 @@ export default function LandingFooter() {
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
-              <UniSwapLogo size="sm" withText href="/" />
+              <UniSwapLogo size="sm" withText href="/" theme="light" />
             </div>
             <p className="font-sans text-sm text-slate-500 max-w-sm leading-relaxed">
               The trusted marketplace for VIT-AP students. Buy, sell, and swap verified pre-owned textbooks, electronics, and hostel essentials inside campus.
