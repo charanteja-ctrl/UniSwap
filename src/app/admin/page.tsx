@@ -3,7 +3,17 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { useAuth, DEMO_USERS } from "@/lib/auth-context";
-import { UserRole, ReportItem, AuditLog, Advertisement, CustomRoleDefinition, Permission } from "@/lib/types";
+import {
+  UserRole,
+  ReportItem,
+  AuditLog,
+  Advertisement,
+  CustomRoleDefinition,
+  Permission,
+  FeedbackItem,
+  FeedbackStatus,
+  FeedbackCategory,
+} from "@/lib/types";
 import { hasPermission, ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   DollarSign,
@@ -35,12 +45,22 @@ import {
   Layers,
   PlusCircle,
   Building,
+  MessageSquare,
+  Star,
+  Search,
+  Image as ImageIcon,
+  Send,
+  CornerDownRight,
+  Eye,
+  Filter,
 } from "lucide-react";
 
 export default function AdminPage() {
   const { user, loginAsRole } = useAuth();
+  const currentRole = user?.role || "master_admin";
+
   const [activeTab, setActiveTab] = useState<
-    "revenue" | "ads_workflow" | "moderation" | "rbac" | "audit" | "health"
+    "revenue" | "ads_workflow" | "moderation" | "feedback" | "rbac" | "audit" | "health"
   >("revenue");
 
   // Config settings
@@ -55,6 +75,24 @@ export default function AdminPage() {
   // Advertisements workflow state
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [adsLoading, setAdsLoading] = useState(false);
+
+  // Feedback Management state
+  const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackMetrics, setFeedbackMetrics] = useState({
+    totalSubmissions: 0,
+    averageRating: 0,
+    ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>,
+    statusCounts: { New: 0, "In Progress": 0, Resolved: 0 } as Record<FeedbackStatus, number>,
+  });
+  const [feedbackSearch, setFeedbackSearch] = useState("");
+  const [feedbackCategory, setFeedbackCategory] = useState<string>("ALL");
+  const [feedbackStatus, setFeedbackStatus] = useState<string>("ALL");
+  const [feedbackRating, setFeedbackRating] = useState<string>("ALL");
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [previewScreenshot, setPreviewScreenshot] = useState<string | null>(null);
 
   // Custom Roles state for Dynamic RBAC
   const [customRoles, setCustomRoles] = useState<CustomRoleDefinition[]>([
@@ -241,10 +279,138 @@ export default function AdminPage() {
     }
   };
 
+  const fetchFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (feedbackSearch.trim()) params.set("search", feedbackSearch.trim());
+      if (feedbackCategory !== "ALL") params.set("category", feedbackCategory);
+      if (feedbackStatus !== "ALL") params.set("status", feedbackStatus);
+      if (feedbackRating !== "ALL") params.set("rating", feedbackRating);
+      params.set("role", currentRole);
+
+      const res = await fetch(`/api/feedback?${params.toString()}`, {
+        headers: {
+          "x-user-role": currentRole,
+        },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedbackList(data.feedback || []);
+        if (data.metrics) {
+          setFeedbackMetrics(data.metrics);
+        }
+      }
+    } catch (e) {
+      console.error("Feedback fetch error:", e);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleUpdateFeedbackStatus = async (id: string, status: FeedbackStatus) => {
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-role": currentRole,
+        },
+        body: JSON.stringify({ id, status, actorRole: currentRole }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedbackList((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status } : item))
+        );
+        setFeedbackMetrics((prev) => {
+          const counts = { ...prev.statusCounts };
+          const oldItem = feedbackList.find((f) => f.id === id);
+          if (oldItem && oldItem.status !== status) {
+            counts[oldItem.status] = Math.max(0, counts[oldItem.status] - 1);
+            counts[status] = (counts[status] || 0) + 1;
+          }
+          return { ...prev, statusCounts: counts };
+        });
+        const newAudit: AuditLog = {
+          id: `aud-${Date.now()}`,
+          actorId: user?.id || "usr_admin",
+          actorName: user?.name || "Administrator",
+          actorRole: currentRole,
+          action: "FEEDBACK_STATUS_UPDATE",
+          resource: `Feedback #${id}`,
+          details: `Updated feedback status to ${status}`,
+          timestamp: "Just now",
+          ipAddress: "127.0.0.1",
+        };
+        setAuditLogs((prev) => [newAudit, ...prev]);
+      } else {
+        alert(data.error || "Failed to update feedback status");
+      }
+    } catch (e) {
+      console.error("Status update error:", e);
+    }
+  };
+
+  const handleSendAdminReply = async (id: string) => {
+    if (!replyText.trim()) return;
+    setReplySubmitting(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-role": currentRole,
+        },
+        body: JSON.stringify({
+          id,
+          adminReply: replyText.trim(),
+          actorRole: currentRole,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const now = new Date().toISOString();
+        setFeedbackList((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, adminReply: replyText.trim(), adminReplyAt: now } : item
+          )
+        );
+        setReplyingId(null);
+        setReplyText("");
+        const newAudit: AuditLog = {
+          id: `aud-${Date.now()}`,
+          actorId: user?.id || "usr_admin",
+          actorName: user?.name || "Administrator",
+          actorRole: currentRole,
+          action: "FEEDBACK_REPLY_SENT",
+          resource: `Feedback #${id}`,
+          details: `Official campus response dispatched to student`,
+          timestamp: "Just now",
+          ipAddress: "127.0.0.1",
+        };
+        setAuditLogs((prev) => [newAudit, ...prev]);
+      } else {
+        alert(data.error || "Failed to send reply");
+      }
+    } catch (e) {
+      console.error("Admin reply error:", e);
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
   useEffect(() => {
     fetchAds();
     if (activeTab === "health") fetchHealth();
+    if (activeTab === "feedback") fetchFeedback();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "feedback") {
+      fetchFeedback();
+    }
+  }, [feedbackCategory, feedbackStatus, feedbackRating]);
 
   const handleAdWorkflow = async (adId: string, action: "APPROVE" | "REJECT") => {
     try {
@@ -335,8 +501,6 @@ export default function AdminPage() {
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
-
-  const currentRole = user?.role || "master_admin";
 
   const allPossiblePerms: Permission[] = [
     "AD_REVIEW",
@@ -454,6 +618,19 @@ export default function AdminPage() {
           >
             <ShieldAlert className="w-4 h-4 text-rose-500" />
             <span>Marketplace Moderation</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("feedback")}
+            className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center gap-2 flex-shrink-0 ${
+              activeTab === "feedback"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-600" />
+            <span>Feedback & Suggestions ({feedbackMetrics?.statusCounts?.New || 0})</span>
           </button>
 
           <button
@@ -943,7 +1120,453 @@ export default function AdminPage() {
             )}
           </div>
         )}
+
+        {/* TAB: STUDENT FEEDBACK & SUGGESTIONS */}
+        {activeTab === "feedback" && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Header & Refresh */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-emerald-600" />
+                    <span>Student Feedback & Suggestions Governance</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Direct voice from VIT-AP campus buyers and sellers. Review ratings, track unresolved pain points, and dispatch official campus replies.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchFeedback}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${feedbackLoading ? "animate-spin" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Total Submissions */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Total Submissions</span>
+                  <MessageSquare className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="text-3xl font-black text-slate-900">
+                  {feedbackMetrics.totalSubmissions}
+                </div>
+                <div className="text-xs text-slate-500">All student opinions & reports</div>
+              </div>
+
+              {/* Average Rating */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Average Rating</span>
+                  <Star className="w-5 h-5 text-amber-500 fill-amber-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-slate-900">{feedbackMetrics.averageRating}</span>
+                  <span className="text-sm font-bold text-slate-400">/ 5.0</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`w-3.5 h-3.5 ${
+                        star <= Math.round(feedbackMetrics.averageRating)
+                          ? "text-amber-400 fill-amber-400"
+                          : "text-slate-200"
+                      }`}
+                    />
+                  ))}
+                  <span className="text-[11px] font-medium text-slate-500 ml-1">Campus Satisfaction</span>
+                </div>
+              </div>
+
+              {/* Pending Action */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Pending Action</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+                </div>
+                <div className="text-3xl font-black text-amber-600">
+                  {feedbackMetrics.statusCounts.New}
+                </div>
+                <div className="text-xs text-slate-500">Requires triage or reply</div>
+              </div>
+
+              {/* Resolved Count & Rate */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider">Resolved</span>
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="text-3xl font-black text-emerald-600">
+                  {feedbackMetrics.statusCounts.Resolved}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {feedbackMetrics.totalSubmissions > 0
+                    ? `${Math.round((feedbackMetrics.statusCounts.Resolved / feedbackMetrics.totalSubmissions) * 100)}% resolution rate`
+                    : "No submissions yet"}
+                </div>
+              </div>
+            </div>
+
+            {/* Rating Breakdown Bars */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Rating Distribution</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const count = feedbackMetrics.ratingDistribution[stars] || 0;
+                  const pct =
+                    feedbackMetrics.totalSubmissions > 0
+                      ? Math.round((count / feedbackMetrics.totalSubmissions) * 100)
+                      : 0;
+                  return (
+                    <div
+                      key={stars}
+                      className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl flex flex-col justify-between space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1 font-bold text-xs text-slate-800">
+                          {stars} <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        </span>
+                        <span className="text-xs font-mono font-bold text-slate-600">{count} ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-amber-400 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={feedbackSearch}
+                    onChange={(e) => setFeedbackSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && fetchFeedback()}
+                    placeholder="Search by title, student name, keyword, or category..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                  />
+                </div>
+
+                {/* Category Dropdown */}
+                <select
+                  value={feedbackCategory}
+                  onChange={(e) => setFeedbackCategory(e.target.value)}
+                  className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="General Website">General Website</option>
+                  <option value="Buying Experience">Buying Experience</option>
+                  <option value="Selling Experience">Selling Experience</option>
+                  <option value="Payment Issues">Payment Issues</option>
+                  <option value="Campus Meetup">Campus Meetup</option>
+                  <option value="Bug Report">Bug Report</option>
+                  <option value="Feature Request">Feature Request</option>
+                  <option value="Other">Other</option>
+                </select>
+
+                {/* Status Dropdown */}
+                <select
+                  value={feedbackStatus}
+                  onChange={(e) => setFeedbackStatus(e.target.value)}
+                  className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="New">New</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                </select>
+
+                {/* Rating Dropdown */}
+                <select
+                  value={feedbackRating}
+                  onChange={(e) => setFeedbackRating(e.target.value)}
+                  className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="ALL">All Ratings</option>
+                  <option value="5">5 Stars</option>
+                  <option value="4">4 Stars</option>
+                  <option value="3">3 Stars</option>
+                  <option value="2">2 Stars</option>
+                  <option value="1">1 Star</option>
+                </select>
+
+                {/* Search Action */}
+                <button
+                  type="button"
+                  onClick={fetchFeedback}
+                  className="px-4 py-2.5 bg-[#0A2540] hover:bg-blue-900 text-white font-bold rounded-xl text-xs transition"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+
+            {/* Submissions List */}
+            {feedbackLoading ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Loading verified student feedback...
+                </p>
+              </div>
+            ) : feedbackList.length === 0 ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto" />
+                <h4 className="text-sm font-bold text-slate-700">No feedback submissions found</h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  {feedbackSearch || feedbackCategory !== "ALL" || feedbackStatus !== "ALL" || feedbackRating !== "ALL"
+                    ? "Try adjusting your filters or search keywords to see matching results."
+                    : "No student feedback has been submitted yet. Student submissions will appear here in real time."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {feedbackList.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm hover:shadow-md transition space-y-4"
+                  >
+                    {/* Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Category Badge */}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-100">
+                          {item.category}
+                        </span>
+
+                        {/* Stars */}
+                        <div className="flex items-center gap-0.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200/60">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`w-3.5 h-3.5 ${
+                                s <= item.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"
+                              }`}
+                            />
+                          ))}
+                          <span className="text-[11px] font-black text-amber-700 ml-1">{item.rating}/5</span>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span
+                          className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${
+                            item.status === "Resolved"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : item.status === "In Progress"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200 animate-pulse"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+
+                      {/* Author & Timestamp */}
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        {item.isAnonymous ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                            🕶️ Anonymous Student
+                          </span>
+                        ) : (
+                          <span className="font-bold text-slate-800">
+                            {item.userName} ({item.userEmail})
+                          </span>
+                        )}
+                        <span>•</span>
+                        <span>{new Date(item.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    </div>
+
+                    {/* Title & Message */}
+                    <div className="space-y-1.5">
+                      <h4 className="text-sm sm:text-base font-extrabold text-slate-900">{item.title}</h4>
+                      <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {item.message}
+                      </p>
+                    </div>
+
+                    {/* Screenshot thumbnail if available */}
+                    {item.screenshotPath && (
+                      <div className="pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewScreenshot(item.screenshotPath || null)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 transition group"
+                        >
+                          <ImageIcon className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                          <span>View Attached Screenshot</span>
+                          <Eye className="w-3.5 h-3.5 text-slate-400" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Admin Action Bar: Status Selector & Reply Button */}
+                    <div className="pt-3 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      {/* Status Selector */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Update Status:</span>
+                        {(["New", "In Progress", "Resolved"] as FeedbackStatus[]).map((st) => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => handleUpdateFeedbackStatus(item.id, st)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                              item.status === st
+                                ? st === "Resolved"
+                                  ? "bg-emerald-600 text-white shadow-sm"
+                                  : st === "In Progress"
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "bg-amber-500 text-white shadow-sm"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Reply Button Trigger */}
+                      {replyingId !== item.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingId(item.id);
+                            setReplyText(item.adminReply || "");
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800"
+                        >
+                          <CornerDownRight className="w-3.5 h-3.5" />
+                          <span>{item.adminReply ? "Edit Official Campus Reply" : "Write Official Campus Reply"}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Official Admin Reply Display */}
+                    {item.adminReply && replyingId !== item.id && (
+                      <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-4 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase text-blue-800 tracking-wider flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                            Official UniSwap Campus Response
+                          </span>
+                          {item.adminReplyAt && (
+                            <span className="text-[10px] text-blue-500 font-medium">
+                              {new Date(item.adminReplyAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-blue-950 whitespace-pre-wrap leading-relaxed font-medium">
+                          {item.adminReply}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Reply Input Form */}
+                    {replyingId === item.id && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <Send className="w-3.5 h-3.5 text-blue-600" />
+                            Respond as {user?.name || "Campus Admin"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingId(null)}
+                            className="text-xs text-slate-400 hover:text-slate-600 font-bold"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Type clear resolution notes or campus guidance for this student..."
+                          className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setReplyingId(null)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={replySubmitting || !replyText.trim()}
+                            onClick={() => handleSendAdminReply(item.id)}
+                            className="px-4 py-1.5 rounded-xl text-xs font-bold bg-[#0A2540] hover:bg-blue-900 text-white transition disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>{replySubmitting ? "Sending..." : "Dispatch Reply"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
+      {/* Screenshot Lightbox Modal */}
+      {previewScreenshot && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Attached Screenshot Preview"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn"
+          onClick={() => setPreviewScreenshot(null)}
+        >
+          <div
+            className="bg-white rounded-3xl p-4 max-w-3xl w-full shadow-2xl border border-slate-200 space-y-3 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-blue-600" />
+                <span>Attached Student Screenshot</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPreviewScreenshot(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="max-h-[75vh] overflow-auto rounded-2xl bg-slate-950 flex items-center justify-center p-2">
+              <img
+                src={previewScreenshot}
+                alt="Student attached screenshot"
+                className="max-h-[70vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Custom Role Modal */}
       {isRoleModalOpen && (

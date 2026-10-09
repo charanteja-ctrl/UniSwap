@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import FloatingFeedbackButton from "@/components/FloatingFeedbackButton";
 
 export const metadata: Metadata = {
   title: "UniSwap — VIT-AP Campus Peer Marketplace",
@@ -29,6 +30,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#f9fafb] text-[#0a1b33] antialiased flex flex-col justify-between selection:bg-yellow-200">
         <AuthProvider>
           <main className="flex-1">{children}</main>
+          <FloatingFeedbackButton />
         </AuthProvider>
       </body>
     </html>

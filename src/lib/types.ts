@@ -246,6 +246,37 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+// Student Feedback & Suggestions Types
+export type FeedbackCategory =
+  | "General Website"
+  | "Buying Experience"
+  | "Selling Experience"
+  | "Payment Issues"
+  | "Campus Meetup"
+  | "Bug Report"
+  | "Feature Request"
+  | "Other";
+
+export type FeedbackStatus = "New" | "In Progress" | "Resolved";
+
+export interface FeedbackItem {
+  id: string;
+  userId?: string;
+  userName: string;
+  userEmail: string;
+  rating: number; // 1 to 5
+  category: FeedbackCategory;
+  title: string;
+  message: string;
+  isAnonymous: boolean;
+  screenshotPath?: string;
+  status: FeedbackStatus;
+  adminReply?: string;
+  adminReplyAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // Advertisements & Campus Ecosystem Types
 export type AdCategory =
   | "CAMPUS_CLUB"
