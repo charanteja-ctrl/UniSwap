@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Sparkles, Send, Bot, User, X, Loader2 } from "lucide-react";
+import { safeApiFetch } from "@/lib/api-client";
 
 interface Message {
   sender: "user" | "ai";
@@ -29,22 +30,20 @@ export default function AIAssistantModal({ isOpen, onClose }: { isOpen: boolean;
     setLoading(true);
 
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await safeApiFetch<any>("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
           conversationHistory: messages,
         }),
       });
 
-      const data = await res.json();
-      if (data.success && data.reply) {
-        setMessages((prev) => [...prev, { sender: "ai", text: data.reply }]);
+      if (res.ok && res.data?.success && res.data?.reply) {
+        setMessages((prev) => [...prev, { sender: "ai", text: res.data.reply }]);
       } else {
         setMessages((prev) => [
           ...prev,
-          { sender: "ai", text: data.error || "Sorry, I couldn't reach the AI service right now." }
+          { sender: "ai", text: res.error || res.data?.error || "Sorry, I couldn't reach the AI service right now." }
         ]);
       }
     } catch (e: any) {

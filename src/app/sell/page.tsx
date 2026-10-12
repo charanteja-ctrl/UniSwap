@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import { CAMPUS_LOCATIONS } from "@/lib/constants";
 import { Sparkles, Loader2, DollarSign, Tag, MapPin, RefreshCw, Gift, CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { safeApiFetch } from "@/lib/api-client";
 
 export default function SellPage() {
   const [roughText, setRoughText] = useState("");
@@ -35,18 +36,16 @@ export default function SellPage() {
     if (!roughText.trim()) return;
     setIsAiGenerating(true);
     try {
-      const res = await fetch("/api/ai/generate-listing", {
+      const res = await safeApiFetch<any>("/api/ai/generate-listing", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roughDescription: roughText }),
       });
-      const data = await res.json();
-      if (data.success && data.data) {
-        if (data.data.title) setTitle(data.data.title);
-        if (data.data.description) setDescription(data.data.description);
-        if (data.data.category) setCategory(data.data.category);
-        if (data.data.condition) setCondition(data.data.condition);
-        if (data.data.suggestedPrice) setPrice(data.data.suggestedPrice);
+      if (res.ok && res.data?.success && res.data?.data) {
+        if (res.data.data.title) setTitle(res.data.data.title);
+        if (res.data.data.description) setDescription(res.data.data.description);
+        if (res.data.data.category) setCategory(res.data.data.category);
+        if (res.data.data.condition) setCondition(res.data.data.condition);
+        if (res.data.data.suggestedPrice) setPrice(res.data.data.suggestedPrice);
       }
     } catch (err) {
       console.error("AI Generation error:", err);
@@ -60,9 +59,8 @@ export default function SellPage() {
     if (!title.trim()) return;
     setIsPricingLoading(true);
     try {
-      const res = await fetch("/api/ai/price-suggest", {
+      const res = await safeApiFetch<any>("/api/ai/price-suggest", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           category,
@@ -70,11 +68,10 @@ export default function SellPage() {
           originalPrice,
         }),
       });
-      const data = await res.json();
-      if (data.success && data.data) {
-        setPriceAdvice(data.data);
-        if (data.data.suggestedMinPrice) {
-          setPrice(data.data.suggestedMinPrice);
+      if (res.ok && res.data?.success && res.data?.data) {
+        setPriceAdvice(res.data.data);
+        if (res.data.data.suggestedMinPrice) {
+          setPrice(res.data.data.suggestedMinPrice);
         }
       }
     } catch (err) {

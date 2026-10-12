@@ -15,6 +15,7 @@ import {
   FeedbackCategory,
 } from "@/lib/types";
 import { hasPermission, ROLE_PERMISSIONS } from "@/lib/permissions";
+import { safeApiFetch } from "@/lib/api-client";
 import {
   DollarSign,
   TrendingUp,
@@ -254,10 +255,9 @@ export default function AdminPage() {
   const fetchAds = async () => {
     setAdsLoading(true);
     try {
-      const res = await fetch("/api/ads");
-      const data = await res.json();
-      if (data.success && data.ads) {
-        setAds(data.ads);
+      const res = await safeApiFetch<any>("/api/ads");
+      if (res.ok && res.data?.success && res.data?.ads) {
+        setAds(res.data.ads);
       }
     } catch (e) {
       console.error("Ads fetch error:", e);
@@ -269,9 +269,10 @@ export default function AdminPage() {
   const fetchHealth = async () => {
     setHealthLoading(true);
     try {
-      const res = await fetch("/api/health");
-      const data = await res.json();
-      setHealthData(data);
+      const res = await safeApiFetch<any>("/api/health");
+      if (res.data) {
+        setHealthData(res.data);
+      }
     } catch (e) {
       console.error("Health check error:", e);
     } finally {
@@ -289,16 +290,15 @@ export default function AdminPage() {
       if (feedbackRating !== "ALL") params.set("rating", feedbackRating);
       params.set("role", currentRole);
 
-      const res = await fetch(`/api/feedback?${params.toString()}`, {
+      const res = await safeApiFetch<any>(`/api/feedback?${params.toString()}`, {
         headers: {
           "x-user-role": currentRole,
         },
       });
-      const data = await res.json();
-      if (data.success) {
-        setFeedbackList(data.feedback || []);
-        if (data.metrics) {
-          setFeedbackMetrics(data.metrics);
+      if (res.ok && res.data?.success) {
+        setFeedbackList(res.data.feedback || []);
+        if (res.data.metrics) {
+          setFeedbackMetrics(res.data.metrics);
         }
       }
     } catch (e) {
@@ -310,16 +310,14 @@ export default function AdminPage() {
 
   const handleUpdateFeedbackStatus = async (id: string, status: FeedbackStatus) => {
     try {
-      const res = await fetch("/api/feedback", {
+      const res = await safeApiFetch<any>("/api/feedback", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           "x-user-role": currentRole,
         },
         body: JSON.stringify({ id, status, actorRole: currentRole }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && res.data?.success) {
         setFeedbackList((prev) =>
           prev.map((item) => (item.id === id ? { ...item, status } : item))
         );
@@ -345,7 +343,7 @@ export default function AdminPage() {
         };
         setAuditLogs((prev) => [newAudit, ...prev]);
       } else {
-        alert(data.error || "Failed to update feedback status");
+        alert(res.error || res.data?.error || "Failed to update feedback status");
       }
     } catch (e) {
       console.error("Status update error:", e);
@@ -356,10 +354,9 @@ export default function AdminPage() {
     if (!replyText.trim()) return;
     setReplySubmitting(true);
     try {
-      const res = await fetch("/api/feedback", {
+      const res = await safeApiFetch<any>("/api/feedback", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           "x-user-role": currentRole,
         },
         body: JSON.stringify({
@@ -368,8 +365,7 @@ export default function AdminPage() {
           actorRole: currentRole,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && res.data?.success) {
         const now = new Date().toISOString();
         setFeedbackList((prev) =>
           prev.map((item) =>
@@ -391,7 +387,7 @@ export default function AdminPage() {
         };
         setAuditLogs((prev) => [newAudit, ...prev]);
       } else {
-        alert(data.error || "Failed to send reply");
+        alert(res.error || res.data?.error || "Failed to send reply");
       }
     } catch (e) {
       console.error("Admin reply error:", e);

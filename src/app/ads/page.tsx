@@ -27,6 +27,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import { safeApiFetch } from "@/lib/api-client";
 
 export default function AdsHubPage() {
   const { user } = useAuth();
@@ -53,10 +54,9 @@ export default function AdsHubPage() {
   const fetchAds = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/ads");
-      const data = await res.json();
-      if (data.success && data.ads) {
-        setAds(data.ads);
+      const res = await safeApiFetch<any>("/api/ads");
+      if (res.ok && res.data?.success && res.data?.ads) {
+        setAds(res.data.ads);
       }
     } catch (e) {
       console.error("Failed to load ads:", e);
@@ -79,9 +79,8 @@ export default function AdsHubPage() {
     setSuccessMsg(null);
 
     try {
-      const res = await fetch("/api/ads", {
+      const res = await safeApiFetch<any>("/api/ads", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           tagline,
@@ -96,9 +95,8 @@ export default function AdsHubPage() {
         }),
       });
 
-      const data = await res.json();
-      if (data.success) {
-        setSuccessMsg(data.message);
+      if (res.ok && res.data?.success) {
+        setSuccessMsg(res.data.message);
         fetchAds();
         setTimeout(() => {
           setIsModalOpen(false);

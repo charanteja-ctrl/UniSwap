@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { loadRazorpaySDK } from "@/lib/razorpay-loader";
+import { safeApiFetch } from "@/lib/api-client";
 
 declare global {
   interface Window {
@@ -116,9 +117,8 @@ export default function RazorpayCheckoutButton({
       }
 
       // 2. Call backend to create Razorpay order
-      const orderRes = await fetch("/api/create-order", {
+      const orderRes = await safeApiFetch<any>("/api/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: totalAmountPaise, // in paise
           productId,
@@ -130,11 +130,11 @@ export default function RazorpayCheckoutButton({
         }),
       });
 
-      const orderData = await orderRes.json();
-
-      if (!orderRes.ok || !orderData.order_id) {
-        throw new Error(orderData.error || "Failed to create payment order with campus server.");
+      if (!orderRes.ok || !orderRes.data?.order_id) {
+        throw new Error(orderRes.error || orderRes.data?.error || "Failed to create payment order with campus server.");
       }
+
+      const orderData = orderRes.data;
 
       const razorpayKey = orderData.key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
       if (!razorpayKey) {
@@ -208,9 +208,8 @@ export default function RazorpayCheckoutButton({
             console.log(`[Razorpay Flow]: Verifying payment ${response.razorpay_payment_id} for order ${response.razorpay_order_id}`);
 
             // 4. Verify signature on backend
-            const verifyRes = await fetch("/api/verify-payment", {
+            const verifyRes = await safeApiFetch<any>("/api/verify-payment", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -231,11 +230,11 @@ export default function RazorpayCheckoutButton({
               }),
             });
 
-            const verifyData = await verifyRes.json();
-
-            if (!verifyRes.ok || !verifyData.success) {
-              throw new Error(verifyData.error || "Payment signature verification failed on campus server.");
+            if (!verifyRes.ok || !verifyRes.data?.success) {
+              throw new Error(verifyRes.error || verifyRes.data?.error || "Payment signature verification failed on campus server.");
             }
+
+            const verifyData = verifyRes.data;
 
             // Confirmed success: transition cleanly
             if (isMountedRef.current) {

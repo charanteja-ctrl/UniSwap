@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Sparkles, Bot, Tag, Search, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { safeApiFetch } from "@/lib/api-client";
 
 export default function AIPoweredSection() {
   const [activeTab, setActiveTab] = useState<"listing" | "pricing" | "search">("listing");
@@ -16,21 +17,18 @@ export default function AIPoweredSection() {
 
     try {
       if (activeTab === "listing") {
-        const res = await fetch("/api/ai/generate-listing", {
+        const res = await safeApiFetch<any>("/api/ai/generate-listing", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ roughDescription: inputQuery || "Used Casio scientific calculator 1 yr old" }),
         });
-        const data = await res.json();
-        if (data.success && data.data) {
-          setResultText(`✨ Generated Title: "${data.data.title}"\n💡 Suggested Price: ₹${data.data.suggestedPrice}\n📝 Description: ${data.data.description}`);
+        if (res.ok && res.data?.success && res.data?.data) {
+          setResultText(`✨ Generated Title: "${res.data.data.title}"\n💡 Suggested Price: ₹${res.data.data.suggestedPrice}\n📝 Description: ${res.data.data.description}`);
         } else {
           setResultText("Title: Casio FX-991CW Scientific Calculator\nCondition: Good\nSuggested Price: ₹650");
         }
       } else if (activeTab === "pricing") {
-        const res = await fetch("/api/ai/price-suggest", {
+        const res = await safeApiFetch<any>("/api/ai/price-suggest", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: inputQuery || "Higher Engineering Mathematics by B.S. Grewal",
             category: "Books",
@@ -38,9 +36,8 @@ export default function AIPoweredSection() {
             originalPrice: 750,
           }),
         });
-        const data = await res.json();
-        if (data.success && data.data) {
-          setResultText(`💰 Recommended Resale: ₹${data.data.suggestedMinPrice} – ₹${data.data.suggestedMaxPrice}\n🔥 Demand: ${data.data.demandRating}\n📊 Reason: ${data.data.reasoning}`);
+        if (res.ok && res.data?.success && res.data?.data) {
+          setResultText(`💰 Recommended Resale: ₹${res.data.data.suggestedMinPrice} – ₹${res.data.data.suggestedMaxPrice}\n🔥 Demand: ${res.data.data.demandRating}\n📊 Reason: ${res.data.data.reasoning}`);
         } else {
           setResultText("💰 Recommended Price: ₹350 - ₹420\n🔥 Demand: HIGH (Standard VIT-AP first year curriculum)");
         }

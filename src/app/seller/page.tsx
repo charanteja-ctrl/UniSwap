@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
+import { safeApiFetch } from "@/lib/api-client";
 
 export default function SellerStudioPage() {
   const { user } = useAuth();
@@ -45,10 +46,9 @@ export default function SellerStudioPage() {
   const fetchOffers = async () => {
     setLoadingOffers(true);
     try {
-      const res = await fetch("/api/offers");
-      const data = await res.json();
-      if (data.success && data.offers) {
-        setOffers(data.offers);
+      const res = await safeApiFetch<any>("/api/offers");
+      if (res.ok && res.data?.success && res.data?.offers) {
+        setOffers(res.data.offers);
       }
     } catch (e) {
       console.error("Failed to load offers:", e);
@@ -63,13 +63,11 @@ export default function SellerStudioPage() {
 
   const handleOfferAction = async (offerId: string, action: "ACCEPT" | "REJECT") => {
     try {
-      const res = await fetch("/api/offers", {
+      const res = await safeApiFetch<any>("/api/offers", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ offerId, action }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok && res.data?.success) {
         setOffers((prev) =>
           prev.map((o) => (o.id === offerId ? { ...o, status: action === "ACCEPT" ? "ACCEPTED" : "REJECTED" } : o))
         );

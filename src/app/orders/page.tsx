@@ -24,6 +24,7 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
+import { safeApiFetch } from "@/lib/api-client";
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -44,10 +45,9 @@ export default function OrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/verify-payment");
-      const data = await res.json();
-      if (data.success && data.orders) {
-        setOrders(data.orders);
+      const res = await safeApiFetch<any>("/api/verify-payment", { method: "GET" });
+      if (res.ok && res.data?.success && res.data?.orders) {
+        setOrders(res.data.orders);
       }
     } catch (e) {
       console.error("Error fetching orders:", e);

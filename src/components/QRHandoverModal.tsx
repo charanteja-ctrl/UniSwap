@@ -17,6 +17,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { Order } from "@/lib/types";
+import { safeApiFetch } from "@/lib/api-client";
 
 interface QRHandoverModalProps {
   order: Order;
@@ -49,9 +50,8 @@ export default function QRHandoverModal({
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/exchange/verify-qr", {
+      const res = await safeApiFetch<any>("/api/exchange/verify-qr", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId: order.orderId,
           qrToken: providedToken || exchangeToken,
@@ -60,9 +60,8 @@ export default function QRHandoverModal({
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to verify exchange token.");
+      if (!res.ok || !res.data?.success) {
+        throw new Error(res.error || res.data?.error || "Failed to verify exchange token.");
       }
 
       // Confetti celebration
@@ -76,7 +75,7 @@ export default function QRHandoverModal({
 
       setIsSuccess(true);
       if (onVerified) {
-        onVerified(data.order);
+        onVerified(res.data?.order || order);
       }
     } catch (err: any) {
       console.error("QR Verification error:", err);

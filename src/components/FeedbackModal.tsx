@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { FeedbackCategory } from "@/lib/types";
+import { safeApiFetch } from "@/lib/api-client";
 import {
   Star,
   X,
@@ -163,9 +164,8 @@ export default function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackMo
     setLoading(true);
 
     try {
-      const res = await fetch("/api/feedback", {
+      const res = await safeApiFetch<any>("/api/feedback", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rating,
           category,
@@ -179,9 +179,8 @@ export default function FeedbackModal({ isOpen, onClose, onSuccess }: FeedbackMo
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to submit feedback.");
+      if (!res.ok || !res.data?.success) {
+        throw new Error(res.error || res.data?.error || "Failed to submit feedback.");
       }
 
       // Clear draft on successful submission

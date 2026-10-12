@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Product } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
+import { safeApiFetch } from "@/lib/api-client";
 import {
   Tag,
   Sparkles,
@@ -56,9 +57,8 @@ export default function OfferModal({
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("/api/offers", {
+      const res = await safeApiFetch<any>("/api/offers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: product.id,
           productTitle: product.title,
@@ -75,14 +75,13 @@ export default function OfferModal({
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to propose offer");
+      if (!res.ok || !res.data?.success) {
+        throw new Error(res.error || res.data?.error || "Failed to propose offer");
       }
 
       setSuccess(true);
       if (onOfferSubmitted) {
-        onOfferSubmitted(data.offer);
+        onOfferSubmitted(res.data.offer);
       }
       setTimeout(() => {
         onClose();
